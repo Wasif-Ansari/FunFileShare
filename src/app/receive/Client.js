@@ -1,6 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { useTransfer } from '../../components/TransferContext';
+import CopyButton from '../../components/CopyButton';
+import Card from '../../components/Card';
+import Stat from '../../components/Stat';
+import ProgressBar from '../../components/ProgressBar';
+import Alert from '../../components/Alert';
+import Button from '../../components/Button';
 import { useSearchParams } from 'next/navigation';
 
 const TRACKERS = [
@@ -27,6 +35,7 @@ export default function ReceiveClient() {
   const [peers, setPeers] = useState(0);
   const [fileUrls, setFileUrls] = useState({});
   const searchParams = useSearchParams();
+  const { setState: setTransfer } = useTransfer();
 
   // Helper to get or recreate client
   const getOrCreateClient = () => {
@@ -64,6 +73,7 @@ export default function ReceiveClient() {
         clientRef.current = null;
       }
       Object.values(fileUrls).forEach((u) => URL.revokeObjectURL(u));
+      setTransfer((prev) => ({ ...prev, active: false, mode: null, peers: 0, speed: 0, progress: 0 }));
     };
   }, []);
 
@@ -78,6 +88,14 @@ export default function ReceiveClient() {
       setProgress(torrent.progress || 0);
       setDownloadSpeed(torrent.downloadSpeed || 0);
       setPeers(torrent.numPeers || 0);
+      setTransfer((prev) => ({
+        ...prev,
+        active: true,
+        mode: 'receive',
+        peers: torrent.numPeers || 0,
+        speed: torrent.downloadSpeed || 0,
+        progress: torrent.progress || 0,
+      }));
     }, 500);
     return () => clearInterval(interval);
   }, [torrent]);
@@ -85,8 +103,11 @@ export default function ReceiveClient() {
   const startDownload = () => {
     const client = getOrCreateClient();
     if (!client || !magnet || torrent) return;
+    toast.loading('Connecting…', { id: 'dl' });
     client.add(magnet, { announce: TRACKERS }, (t) => {
       setTorrent(t);
+      setTransfer({ active: true, mode: 'receive', peers: 0, speed: 0, progress: 0 });
+      toast.success('Downloading started', { id: 'dl' });
       t.files.forEach((f) => {
         f.getBlobURL((err, url) => {
           if (err) return console.error('Blob URL error', err);
@@ -94,66 +115,62 @@ export default function ReceiveClient() {
         });
       });
     });
+    client.on('error', (e) => {
+      console.error('Client error', e);
+      toast.error('WebTorrent error');
+    });
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Receive files</h1>
+  <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Receive files</h1>
 
       {!ready && (
-        <div className="rounded border bg-yellow-50 p-4 text-yellow-800">
+        <Alert variant="warning">
           Loading WebTorrent… If this persists, check your network/CSP and CDN access.
-        </div>
+        </Alert>
       )}
 
-      <div className="rounded-lg border bg-white p-6 space-y-4">
+      <Card className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Magnet link</label>
+          <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Magnet link</label>
           <textarea
             value={magnet}
             onChange={(e) => setMagnet(e.target.value)}
-            className="w-full min-h-[100px] rounded border px-3 py-2 text-xs"
+            className="w-full min-h-[100px] rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-300"
             placeholder="Paste magnet:?xt=urn:btih:..."
           />
-          <p className="mt-2 text-xs text-gray-500">You can also open /receive?magnet=&lt;encoded_magnet&gt;</p>
+          <div className="mt-3 flex items-center gap-2">
+            <CopyButton text={magnet} />
+            <p className="text-xs text-gray-600 dark:text-brand-100/80">Tip: You can also open /receive?magnet=&lt;encoded_magnet&gt;</p>
+          </div>
         </div>
 
-        <button
-          onClick={startDownload}
-          disabled={!ready || !magnet}
-          className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+        <Button variant="accent" onClick={startDownload} disabled={!ready || !magnet}
         >
           START DOWNLOAD
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {torrent && (
-        <div className="rounded-lg border bg-white p-6 space-y-4">
+        <Card className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="rounded bg-gray-50 p-3">
-              <div className="text-gray-500">Peers</div>
-              <div className="font-semibold">{peers}</div>
-            </div>
-            <div className="rounded bg-gray-50 p-3">
-              <div className="text-gray-500">Download speed</div>
-              <div className="font-semibold">{formatBytes(downloadSpeed)}/s</div>
-            </div>
-            <div className="rounded bg-gray-50 p-3 col-span-2">
-              <div className="text-gray-500 mb-1">Progress</div>
-              <div className="h-2 w-full rounded bg-gray-200">
-                <div className="h-2 rounded bg-green-600" style={{ width: `${Math.round(progress * 100)}%` }} />
-              </div>
-              <div className="mt-1 text-xs text-gray-500">{Math.round(progress * 100)}%</div>
+            <Stat label="Peers" value={peers} />
+            <Stat label="Download speed" value={`${formatBytes(downloadSpeed)}/s`} />
+            <div className="col-span-2">
+              <div className="text-gray-600 dark:text-brand-100/80 mb-2">Progress</div>
+              <ProgressBar value={progress * 100} color="bg-green-600" />
+              <div className="mt-1 text-xs text-gray-600 dark:text-brand-100/80">{Math.round(progress * 100)}%</div>
             </div>
           </div>
 
           <div>
-            <h3 className="font-medium mb-2">Files</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="font-medium mb-2 text-gray-900 dark:text-white">Files</h3>
+            <ul className="space-y-2 text-sm text-gray-800 dark:text-brand-100/90">
               {torrent.files.map((f) => (
                 <li key={f.path} className="flex items-center justify-between gap-3 break-all">
                   <span>
-                    {f.path} <span className="text-gray-500">({formatBytes(f.length)})</span>
+                    {f.path} <span className="text-gray-600 dark:text-brand-200/80">({formatBytes(f.length)})</span>
                   </span>
                   <a
                     href={fileUrls[f.path] || '#'}
@@ -167,17 +184,17 @@ export default function ReceiveClient() {
               ))}
             </ul>
           </div>
-        </div>
+  </Card>
       )}
 
-      <div className="rounded-lg border bg-white p-6 text-sm text-gray-600">
-        <h3 className="font-semibold mb-2">Notes</h3>
-        <ul className="list-disc list-inside space-y-1">
+      <Card className="text-sm">
+        <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Notes</h3>
+        <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-brand-100/90">
           <li>Both sender and receiver must keep their browser tab open during transfer.</li>
           <li>Some corporate or restrictive networks may block WebRTC trackers.</li>
           <li>If peers don’t connect, try a different tracker list or network.</li>
         </ul>
-      </div>
+      </Card>
     </div>
   );
 }

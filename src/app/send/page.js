@@ -1,6 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { useTransfer } from '../../components/TransferContext';
+import CopyButton from '../../components/CopyButton';
+import Card from '../../components/Card';
+import Stat from '../../components/Stat';
+import ProgressBar from '../../components/ProgressBar';
+import Alert from '../../components/Alert';
+import Button from '../../components/Button';
 
 const TRACKERS = [
   'wss://tracker.openwebtorrent.com',
@@ -19,6 +27,7 @@ function formatBytes(bytes) {
 export default function SendPage() {
   const clientRef = useRef(null);
   const unloadHandlerRef = useRef(null);
+  const { setState: setTransfer } = useTransfer();
   const [ready, setReady] = useState(false);
   const [files, setFiles] = useState([]);
   const [torrent, setTorrent] = useState(null);
@@ -57,6 +66,8 @@ export default function SendPage() {
           clientRef.current.destroy();
           clientRef.current = null;
         }
+        // Clear global transfer state
+        setTransfer((prev) => ({ ...prev, active: false, mode: null, peers: 0, speed: 0, progress: 0 }));
       };
       window.addEventListener('beforeunload', unloadHandlerRef.current);
     }
@@ -70,6 +81,7 @@ export default function SendPage() {
         clientRef.current.destroy();
         clientRef.current = null;
       }
+      setTransfer((prev) => ({ ...prev, active: false, mode: null, peers: 0, speed: 0, progress: 0 }));
     };
   }, []);
 
@@ -79,6 +91,14 @@ export default function SendPage() {
       setProgress(torrent.progress || 0);
       setUploadSpeed(torrent.uploadSpeed || 0);
       setPeers(torrent.numPeers || 0);
+      setTransfer((prev) => ({
+        ...prev,
+        active: true,
+        mode: 'send',
+        peers: torrent.numPeers || 0,
+        speed: torrent.uploadSpeed || 0,
+        progress: torrent.progress || 0,
+      }));
     }, 500);
     return () => clearInterval(interval);
   }, [torrent]);
@@ -91,6 +111,7 @@ export default function SendPage() {
   const seedNow = () => {
     const client = getOrCreateClient();
     if (!client || files.length === 0 || torrent) return;
+    toast.loading('Seeding…', { id: 'seed' });
     client.seed(files, { announce: TRACKERS }, (t) => {
       setTorrent(t);
       setMagnet(t.magnetURI);
@@ -100,6 +121,12 @@ export default function SendPage() {
         url.searchParams.set('magnet', t.magnetURI);
         setShareLink(url.toString());
       } catch {}
+      toast.success('Seeding started', { id: 'seed' });
+      setTransfer({ active: true, mode: 'send', peers: 0, speed: 0, progress: 0 });
+    });
+    client.on('error', (e) => {
+      console.error('Client error', e);
+      toast.error('WebTorrent error');
     });
   };
 
@@ -119,98 +146,90 @@ export default function SendPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Send files</h1>
+  <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Send files</h1>
 
       {!ready && (
-        <div className="rounded border bg-yellow-50 p-4 text-yellow-800">
+        <Alert variant="warning">
           Loading WebTorrent… If this persists, check your network/CSP and CDN access.
-        </div>
+        </Alert>
       )}
 
-      <div className="rounded-lg border bg-white p-6 space-y-4">
+      <Card className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Select files</label>
+          <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Select files</label>
           <input
             type="file"
             multiple
             onChange={handleFileChange}
-            className="block w-full text-sm file:mr-4 file:rounded file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-white hover:file:bg-blue-700"
+            className="block w-full text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-300 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-600 file:px-4 file:py-2 file:text-white hover:file:bg-brand-700 text-gray-900 dark:text-white"
           />
           {files.length > 0 && (
-            <p className="mt-2 text-sm text-gray-600">{files.length} file(s) selected</p>
+            <p className="mt-2 text-sm text-gray-700 dark:text-brand-100/90">{files.length} file(s) selected</p>
           )}
         </div>
 
-        <button
-          onClick={seedNow}
-          disabled={!ready || files.length === 0 || !!torrent}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
+        <Button onClick={seedNow} disabled={!ready || files.length === 0 || !!torrent} className="animate-fade-in-up">
           INITIATE TRANSMISSION
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {torrent && (
-        <div className="rounded-lg border bg-white p-6 space-y-4">
+        <Card className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-2">Magnet link</label>
+            <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Magnet link</label>
             <div className="flex items-stretch gap-2">
               <input
                 readOnly
                 value={magnet}
-                className="flex-1 rounded border px-3 py-2 text-xs"
+                className="flex-1 rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300"
               />
-              <button onClick={copyMagnet} className="rounded bg-gray-800 px-3 py-2 text-white text-sm">Copy</button>
+              <CopyButton text={magnet} />
             </div>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-gray-600 dark:text-brand-100/80">
               Share this magnet link with the receiver. Keep this tab open while they download.
             </p>
           </div>
 
           {shareLink && (
             <div>
-              <label className="block text-sm font-medium mb-2">Direct receive link</label>
+              <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Direct receive link</label>
               <div className="flex items-stretch gap-2">
                 <input
                   readOnly
                   value={shareLink}
-                  className="flex-1 rounded border px-3 py-2 text-xs"
+                  className="flex-1 rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300"
                 />
-                <button onClick={copyShareLink} className="rounded bg-gray-800 px-3 py-2 text-white text-sm">Copy</button>
+                <CopyButton text={shareLink} />
               </div>
-              <p className="mt-2 text-xs text-gray-500">Send this URL — it opens the Receive page with the magnet prefilled.</p>
+              <p className="mt-2 text-xs text-gray-600 dark:text-brand-100/80">Send this URL — it opens the Receive page with the magnet prefilled.</p>
             </div>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="rounded bg-gray-50 p-3">
-              <div className="text-gray-500">Peers</div>
-              <div className="font-semibold">{peers}</div>
-            </div>
-            <div className="rounded bg-gray-50 p-3">
-              <div className="text-gray-500">Upload speed</div>
-              <div className="font-semibold">{formatBytes(uploadSpeed)}/s</div>
-            </div>
-            <div className="rounded bg-gray-50 p-3 col-span-2">
-              <div className="text-gray-500 mb-1">Progress</div>
-              <div className="h-2 w-full rounded bg-gray-200">
-                <div className="h-2 rounded bg-blue-600" style={{ width: `${Math.round(progress * 100)}%` }} />
-              </div>
+            <Stat label="Peers" value={peers} />
+            <Stat label="Upload speed" value={`${formatBytes(uploadSpeed)}/s`} />
+            <div className="col-span-2">
+              <div className="text-gray-500 mb-2">Progress</div>
+              <ProgressBar value={progress * 100} />
               <div className="mt-1 text-xs text-gray-500">{Math.round(progress * 100)}%</div>
             </div>
           </div>
 
           <div>
-            <h3 className="font-medium mb-2">Files</h3>
-            <ul className="list-disc list-inside text-sm text-gray-700">
+            <h3 className="font-medium mb-2 text-gray-900 dark:text-white">Files</h3>
+            <ul className="list-disc list-inside text-sm text-gray-800 dark:text-brand-100/90">
               {torrent.files.map((f) => (
                 <li key={f.path} className="break-all">
-                  {f.path} <span className="text-gray-500">({formatBytes(f.length)})</span>
+                  {f.path} <span className="text-gray-600 dark:text-brand-200/80">({formatBytes(f.length)})</span>
                 </li>
               ))}
             </ul>
           </div>
-        </div>
+        </Card>
+      )}
+
+      {!torrent && files.length > 0 && (
+        <Alert variant="info">Ready to seed {files.length} file(s). Click “Initiate Transmission”.</Alert>
       )}
     </div>
   );
