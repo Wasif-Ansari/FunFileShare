@@ -18,6 +18,7 @@ function formatBytes(bytes) {
 
 export default function SendPage() {
   const clientRef = useRef(null);
+  const unloadHandlerRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [files, setFiles] = useState([]);
   const [torrent, setTorrent] = useState(null);
@@ -27,27 +28,48 @@ export default function SendPage() {
   const [uploadSpeed, setUploadSpeed] = useState(0);
   const [peers, setPeers] = useState(0);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.WebTorrent && !clientRef.current) {
+  // Create or recreate the WebTorrent client if needed
+  const getOrCreateClient = () => {
+    if (typeof window === 'undefined' || !window.WebTorrent) return null;
+    if (!clientRef.current || clientRef.current.destroyed) {
       try {
         clientRef.current = new window.WebTorrent({
           tracker: {
             rtcConfig: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
           },
         });
-        setReady(true);
       } catch (e) {
         console.error('Failed to init WebTorrent', e);
+        clientRef.current = null;
       }
     }
+    return clientRef.current;
+  };
 
-    const onBeforeUnload = () => {
-      if (clientRef.current) clientRef.current.destroy();
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
+  useEffect(() => {
+    const client = getOrCreateClient();
+    if (client) setReady(true);
+
+    // Register unload handler once
+    if (!unloadHandlerRef.current) {
+      unloadHandlerRef.current = () => {
+        if (clientRef.current && !clientRef.current.destroyed) {
+          clientRef.current.destroy();
+          clientRef.current = null;
+        }
+      };
+      window.addEventListener('beforeunload', unloadHandlerRef.current);
+    }
+
     return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      if (clientRef.current) clientRef.current.destroy();
+      if (unloadHandlerRef.current) {
+        window.removeEventListener('beforeunload', unloadHandlerRef.current);
+        unloadHandlerRef.current = null;
+      }
+      if (clientRef.current && !clientRef.current.destroyed) {
+        clientRef.current.destroy();
+        clientRef.current = null;
+      }
     };
   }, []);
 
@@ -67,8 +89,9 @@ export default function SendPage() {
   };
 
   const seedNow = () => {
-    if (!clientRef.current || files.length === 0) return;
-    clientRef.current.seed(files, { announce: TRACKERS }, (t) => {
+    const client = getOrCreateClient();
+    if (!client || files.length === 0 || torrent) return;
+    client.seed(files, { announce: TRACKERS }, (t) => {
       setTorrent(t);
       setMagnet(t.magnetURI);
       try {
@@ -120,7 +143,7 @@ export default function SendPage() {
 
         <button
           onClick={seedNow}
-          disabled={!ready || files.length === 0}
+          disabled={!ready || files.length === 0 || !!torrent}
           className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
         >
           INITIATE TRANSMISSION
