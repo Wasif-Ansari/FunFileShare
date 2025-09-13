@@ -18,7 +18,8 @@ export default function RootLayout({ children }) {
     <html lang="en" className="hydrated">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="https://i.postimg.cc/25GmZgtN/W-logo.jpg" />
+        <link rel="apple-touch-icon" href="https://i.postimg.cc/25GmZgtN/W-logo.jpg" />
         <meta name="theme-color" content="#6366f1" />
         <meta name="description" content="Browser-based P2P file sharing with a modern, elegant UI." />
         <meta property="og:title" content="P2P File Share" />
