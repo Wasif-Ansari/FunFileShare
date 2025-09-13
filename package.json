@@ -8,10 +8,11 @@
     "start": "next start"
   },
   "dependencies": {
+    "framer-motion": "^11.3.30",
     "next": "latest",
+    "qrcode.react": "^4.2.0",
     "react": "latest",
     "react-dom": "latest",
-    "framer-motion": "^11.3.30",
     "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {

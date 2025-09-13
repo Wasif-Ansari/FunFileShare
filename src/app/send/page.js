@@ -9,6 +9,7 @@ import Stat from '../../components/Stat';
 import ProgressBar from '../../components/ProgressBar';
 import Alert from '../../components/Alert';
 import Button from '../../components/Button';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const TRACKERS = [
   'wss://tracker.openwebtorrent.com',
@@ -36,6 +37,8 @@ export default function SendPage() {
   const [progress, setProgress] = useState(0);
   const [uploadSpeed, setUploadSpeed] = useState(0);
   const [peers, setPeers] = useState(0);
+  const [showMagnetQR, setShowMagnetQR] = useState(false);
+  const [showShareQR, setShowShareQR] = useState(false);
 
   // Create or recreate the WebTorrent client if needed
   const getOrCreateClient = () => {
@@ -177,41 +180,91 @@ export default function SendPage() {
         <Card className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Magnet link</label>
-            <div className="flex items-stretch gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch gap-2">
               <input
                 readOnly
                 value={magnet}
-                className="flex-1 rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300"
+                className="flex-1 rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300 break-all"
               />
               <CopyButton text={magnet} />
             </div>
             <p className="mt-2 text-xs text-gray-600 dark:text-brand-100/80">
               Share this magnet link with the receiver. Keep this tab open while they download.
             </p>
+            <div className="mt-3">
+              <Button
+                variant="secondary"
+                disabled={!magnet}
+                onClick={() => setShowMagnetQR((v) => !v)}
+              >
+                {showMagnetQR ? 'Hide Magnet QR' : 'Show Magnet QR'}
+              </Button>
+            </div>
+            {showMagnetQR && magnet && (
+              <div className="mt-4">
+                <div className="text-xs text-gray-700 dark:text-brand-100/90 mb-2">
+                  Scan this QR to open the magnet link on another device
+                </div>
+                <div className="inline-block rounded-xl p-3 bg-white shadow-sm">
+                  <QRCodeCanvas
+                    value={magnet}
+                    size={192}
+                    bgColor="#ffffff"
+                    fgColor="#111827"
+                    includeMargin
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {shareLink && (
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Direct receive link</label>
-              <div className="flex items-stretch gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch gap-2">
                 <input
                   readOnly
                   value={shareLink}
-                  className="flex-1 rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300"
+                  className="flex-1 rounded-lg border border-brand-200/60 dark:border-brand-800/60 bg-white dark:bg-brand-900/60 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-brand-300 break-all"
                 />
                 <CopyButton text={shareLink} />
               </div>
               <p className="mt-2 text-xs text-gray-600 dark:text-brand-100/80">Send this URL — it opens the Receive page with the magnet prefilled.</p>
+              <div className="mt-3">
+                <Button
+                  variant="secondary"
+                  disabled={!shareLink}
+                  onClick={() => setShowShareQR((v) => !v)}
+                >
+                  {showShareQR ? 'Hide Link QR' : 'Show Link QR'}
+                </Button>
+              </div>
+              {showShareQR && shareLink && (
+                <div className="mt-4">
+                  <div className="text-xs text-gray-700 dark:text-brand-100/90 mb-2">
+                    Scan this QR to open the direct receive link on another device
+                  </div>
+                  <div className="inline-block rounded-xl p-3 bg-white shadow-sm max-w-full">
+                    <QRCodeCanvas
+                      value={shareLink}
+                      size={192}
+                      bgColor="#ffffff"
+                      fgColor="#111827"
+                      includeMargin
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <Stat label="Peers" value={peers} />
             <Stat label="Upload speed" value={`${formatBytes(uploadSpeed)}/s`} />
             <div className="col-span-2">
-              <div className="text-gray-500 mb-2">Progress</div>
+              <div className="text-gray-700 dark:text-brand-100/90 mb-2">Progress</div>
               <ProgressBar value={progress * 100} />
-              <div className="mt-1 text-xs text-gray-500">{Math.round(progress * 100)}%</div>
+              <div className="mt-1 text-xs text-gray-700 dark:text-brand-100/80">{Math.round(progress * 100)}%</div>
             </div>
           </div>
 

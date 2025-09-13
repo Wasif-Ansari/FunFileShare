@@ -15,8 +15,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className="hydrated">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
         <meta name="theme-color" content="#6366f1" />
         <meta name="description" content="Browser-based P2P file sharing with a modern, elegant UI." />
@@ -34,7 +35,7 @@ export default function RootLayout({ children }) {
           strategy="beforeInteractive"
         />
       </head>
-  <body className={`${inter.className} min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-gray-900 dark:from-slate-900 dark:to-slate-950 dark:text-white`}>
+  <body className={`${inter.className} min-h-screen overflow-x-hidden bg-gradient-to-b from-slate-50 to-slate-100 text-gray-900 dark:from-slate-900 dark:to-slate-950 dark:text-white`}>
         <Providers>
           <StatusBar />
           <header className="border-b border-brand-100/60 dark:border-brand-900/40 bg-white/70 dark:bg-brand-950/40 backdrop-blur">

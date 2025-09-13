@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <div className="space-y-8">
       <div className="text-center space-y-3 animate-fade-in-up">
-        <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white">Peer-to-Peer File Sharing</h1>
+        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white">Peer-to-Peer File Sharing</h1>
         <p className="text-gray-700 dark:text-brand-100/90 max-w-2xl mx-auto">
           Share files directly from your browser using WebTorrent over WebRTC.
           No servers. No sign up. Keep the page open while transferring.

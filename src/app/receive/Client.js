@@ -154,7 +154,7 @@ export default function ReceiveClient() {
 
       {torrent && (
         <Card className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <Stat label="Peers" value={peers} />
             <Stat label="Download speed" value={`${formatBytes(downloadSpeed)}/s`} />
             <div className="col-span-2">
@@ -175,7 +175,7 @@ export default function ReceiveClient() {
                   <a
                     href={fileUrls[f.path] || '#'}
                     download={f.path.split('/').pop()}
-                    className={`rounded px-3 py-1 text-white text-xs ${fileUrls[f.path] ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                    className={`rounded px-3 py-1 text-white text-xs whitespace-nowrap ${fileUrls[f.path] ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
                     onClick={(e) => { if (!fileUrls[f.path]) e.preventDefault(); }}
                   >
                     {fileUrls[f.path] ? 'Download' : 'Preparing…'}
